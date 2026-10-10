@@ -1,5 +1,7 @@
 import nmap
 import ipaddress
+import json
+from app.models import database, models
 
 def validate_ip(ip_addr: str):
     result = {}
@@ -55,10 +57,49 @@ def network_scan(ip_addr: str):
 
 def parse_scan_result(scan_result):
     result = {}
-    for ip, value in scan_result.items():
-        result["target"] = ip
-        result["host_state"] = state = value["status"]["state"]["reason"]
+    hosts = scan_result.get("scan", {})
+    for ip, value in hosts.items():
+        host_data = {
+            "target": ip,
+            "host_state": value["status"]["state"],
+            "hosts_reason": value["status"].get("reason"),
+            "ports": []
+        }
         
         for port, port_info in value.get("tcp", {}).items():
             service = port_info["name"]
             port_state = port_info["state"]
+            port_data = {
+                "port": port,
+                "protocol": "tcp",
+                "state": port_info.get("state"),
+                "service": port_info.get("name"),
+                "product": port_info.get("version"),
+                "reason": port_info.get("reason"),
+                "cpe": port_info.get("cpe")
+            }
+            host_data["ports"].append(port_data)
+        result = host_data
+    return result
+
+def nmap_to_findings(parsed_data):
+    serialized_data = json.dumps(parsed_data)
+    findings = []
+    findings.append({"module_source": "nmap", "data_type": "host_info", "data": serialized_data, "source": "nmap network scan"})
+    return findings
+
+def full_nmap_scan(ip_addr: str):
+    data = network_scan(ip_addr)
+    if data is None:
+        return None
+    parse_data = parse_scan_result(data)
+    if not isinstance(parse_data, dict) or not parse_data.get("target"):
+        return None
+    findings = nmap_to_findings(parse_data)
+    with database.SessionLocal() as session:
+        inv = models.Investigation(name="network_scan", target=parse_data["target"])
+        for f in findings:
+            find = models.Finding(module_source=f["module_source"], data_type=f["data_type"], data=f["data"], source=f["source"])
+            inv.inv.append(find)
+        session.add(inv)
+        session.commit()

@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 from models import database, models
-from app.modules import domain_intel, email_user_intel, get_location, meta_data
+from app.modules import domain_intel, email_user_intel, get_location, meta_data, network_scan
 import streamlit as st
 from sqlalchemy import select
 
@@ -15,7 +15,7 @@ with st.container(gap = "xxsmall"):
     st.subheader("A OSINT Hub.")
     st.divider()
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["DOMAIN","BREACH","GEOLOCATION","EXIF METADATA","TBA"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["DOMAIN","BREACH","GEOLOCATION","EXIF METADATA","NETWORK"])
 
 #Full domain lookup
 with tab1:
@@ -73,4 +73,15 @@ with tab4:
             finding_rows4 = [{"module": f.module_source, "data_type": f.data_type, "data": f.data} for f in d.inv]
             st.table(finding_rows4)
         
-        
+with tab5:
+    st.header("Network Scan")
+    with st.container():
+        inp = st.text_input("IP Address")
+        if st.button("scan", width="stretch"):
+            network_scan.full_nmap_scan(str(inp))
+    with database.SessionLocal() as session4:
+        data5 = session4.execute(select(models.Investigation)).scalars().all()
+        for d in data5:
+            finding_rows5 = [{"module": f.module_source, "data_type": f.data_type, "data": f.data} for f in d.inv]
+            st.table(finding_rows5)
+            
