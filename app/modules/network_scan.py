@@ -52,4 +52,13 @@ def network_scan(ip_addr: str):
     except nmap.PortScannerError:
         print("portscanner error")
         return None
-    
+
+def parse_scan_result(scan_result):
+    result = {}
+    for ip, value in scan_result.items():
+        result["target"] = ip
+        result["host_state"] = state = value["status"]["state"]["reason"]
+        
+        for port, port_info in value.get("tcp", {}).items():
+            service = port_info["name"]
+            port_state = port_info["state"]
