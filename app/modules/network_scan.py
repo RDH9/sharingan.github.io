@@ -41,7 +41,15 @@ def validate_ip(ip_addr: str):
     return result
 
     
-def network_scan(ip_addr: str, scan_profile):
+def network_scan(ip_addr: str):
     valid_ip = validate_ip(ip_addr)
+    try:
+        if not isinstance(valid_ip, dict) or not valid_ip.get("valid"):
+            return None
+        nm = nmap.PortScanner()
+        result = nm.scan(valid_ip["address"], "21-8080", arguments="-sV --version-light -T3 --reason -n")
+        return result
+    except nmap.PortScannerError:
+        print("portscanner error")
+        return None
     
-        
